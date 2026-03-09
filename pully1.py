@@ -13,7 +13,7 @@ import subprocess
 import os
 import sys
 
-WORKSPACE_DIR = r"c:\Users\shashank\Desktop\New folder (4)"
+WORKSPACE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def find_freecad():
     possible_paths = [
