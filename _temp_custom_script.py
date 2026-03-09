@@ -9,8 +9,8 @@ import Sketcher
 import Mesh
 import MeshPart
 
-OUTPUT_PATH = r"c:\\Users\\shashank\\Desktop\\New folder (4)\\Scriptoutput\\stepped_revolution_custom.glb"
-OUTPUT_FORMAT = "glb"
+OUTPUT_PATH = r"C:/Users/shashank/Desktop/New folder (4)/free/output/15.gltf"
+OUTPUT_FORMAT = "gltf"
 
 def create_stepped_revolution():
     """Create a stepped revolution component with custom dimensions"""
@@ -36,16 +36,16 @@ def create_stepped_revolution():
     doc.recompute()
 
     # -- User Custom Dimensions --
-    x1 = 15.0
-    x2 = 40.0
-    x3 = 120.0
-    x4 = 180.0
+    x1 = 13.0
+    x2 = 33.0
+    x3 = 75.0
+    x4 = 90.0
 
-    y1 = 25.0
-    y2 = 30.0
-    y3 = 35.0
-    y4 = 50.0
-    y5 = 55.0
+    y1 = 20.0
+    y2 = 25.0
+    y3 = 30.0
+    y4 = 45.0
+    y5 = 50.0
 
     V = App.Vector
 
@@ -131,26 +131,34 @@ def export_model(doc):
     mesh.write(stl_path)
     print("STL saved: " + stl_path)
     
-    # Save as OBJ
-    obj_path = OUTPUT_PATH.replace('.glb', '.obj').replace('.gltf', '.obj')
-    mesh.write(obj_path)
-    print("OBJ saved: " + obj_path)
-    
-    # Try GLB/GLTF
-    try:
-        mesh.write(OUTPUT_PATH)
-        print(OUTPUT_FORMAT.upper() + " saved: " + OUTPUT_PATH)
-    except Exception as e:
-        print("Direct " + OUTPUT_FORMAT.upper() + " export not available")
-        print("Use Blender to convert STL/OBJ to GLB/GLTF")
-    
     # Save FreeCAD document
     fcstd_path = OUTPUT_PATH.replace('.glb', '.FCStd').replace('.gltf', '.FCStd')
     doc.saveAs(fcstd_path)
     print("FreeCAD file saved: " + fcstd_path)
+    
+    # Export GLTF via ImportGui if available
+    if OUTPUT_FORMAT in ('gltf', 'glb'):
+        try:
+            import ImportGui
+            body = doc.getObject('Body')
+            if body:
+                __objs__ = [body]
+                if hasattr(ImportGui, "exportOptions"):
+                    options = ImportGui.exportOptions(OUTPUT_PATH)
+                    ImportGui.export(__objs__, OUTPUT_PATH, options)
+                else:
+                    ImportGui.export(__objs__, OUTPUT_PATH)
+                del __objs__
+                print(OUTPUT_FORMAT.upper() + " successfully saved: " + OUTPUT_PATH)
+        except ImportError:
+            print("ImportGui not available (headless mode). GLTF not exported.")
+        except Exception as e:
+            print("GLTF export error: " + str(e))
     
     return True
 
 # Run
 doc = create_stepped_revolution()
 export_model(doc)
+import os as _os
+_os._exit(0)

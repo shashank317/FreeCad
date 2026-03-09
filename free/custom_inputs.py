@@ -1,11 +1,11 @@
 """
-FreeCAD Stepped Revolution Component with GLB/GLTF Export - Dynamic Parameters
+FreeCAD Stepped Revolution Component with GLTF Export - Dynamic Parameters
 
-This script opens FreeCAD, generates the component with dynamic dimensions, and exports to GLB/GLTF.
+This script opens FreeCAD, generates the component with dynamic dimensions, and exports to GLTF.
 
 Usage:
     python custom_inputs.py --roller-diameter 160.5 --bearing-width 20 --shaft-diameter 26 --overall-height 50 --base-width 100.5
-    python custom_inputs.py --output custom_model.glb --roller-diameter 160.5 ...
+    python custom_inputs.py --output custom_model.gltf --roller-diameter 160.5 ...
 """
 
 import subprocess
@@ -145,7 +145,7 @@ def create_stepped_revolution():
     return doc
 
 def export_model(doc):
-    """Export the model to GLB/GLTF format"""
+    """Export the model to GLTF format using ImportGui"""
     print("Exporting to " + OUTPUT_FORMAT.upper() + "...")
     
     # Save FreeCAD document first
@@ -158,92 +158,26 @@ def export_model(doc):
         print("Error: Body object not found for export.")
         return False
 
-    try:
-        # User provided GUI-based export script
-        import FreeCADGui as Gui
-        import ImportGui
-        
-        print("FreeCAD GUI environment detected. Attempting native GLB export via ImportGui...")
-        
-        __objs__ = [body]
-        if hasattr(ImportGui, "exportOptions"):
-            options = ImportGui.exportOptions(OUTPUT_PATH)
-            ImportGui.export(__objs__, OUTPUT_PATH, options)
-        else:
-            ImportGui.export(__objs__, OUTPUT_PATH)
-            
-        print(OUTPUT_FORMAT.upper() + " successfully saved via ImportGui: " + OUTPUT_PATH)
-        
-    except ImportError:
-        print("Headless mode detected (FreeCADCmd). ImportGui not available.")
-        print("Falling back to STL/OBJ...")
-        
-        # Fallback to mesh export for headless
-        compound = body.Shape
-        mesh = MeshPart.meshFromShape(
-            Shape=compound, LinearDeflection=0.1, AngularDeflection=0.5, Relative=False
-        )
-        stl_path = OUTPUT_PATH.replace('.glb', '.stl').replace('.gltf', '.stl')
-        mesh.write(stl_path)
-        print("STL saved: " + stl_path)
-        
-        obj_path = OUTPUT_PATH.replace('.glb', '.obj').replace('.gltf', '.obj')
-        mesh.write(obj_path)
-        print("OBJ saved: " + obj_path)
-    except Exception as e:
-        print("Export failed: " + str(e))
-    
+    import ImportGui
+    __objs__ = [body]
+    if hasattr(ImportGui, "exportOptions"):
+        options = ImportGui.exportOptions(OUTPUT_PATH)
+        ImportGui.export(__objs__, OUTPUT_PATH, options)
+    else:
+        ImportGui.export(__objs__, OUTPUT_PATH)
+    del __objs__
+    print(OUTPUT_FORMAT.upper() + " successfully saved: " + OUTPUT_PATH)
     return True
 
 doc = create_stepped_revolution()
 export_model(doc)
+import os
+os._exit(0)
 '''
 
 def generate_script(output_path, output_format, d_shaft, w_bearing, w_base, h_overall, d_roller):
     if output_path is None:
         output_path = os.path.join(WORKSPACE_DIR, "custom_stepped_revolution." + output_format)
-    
-    # Mapping UI Dimensions to Sketch Coordinates (Radii and Heights)
-    # Original Reference from pully1.py:
-    # Radii X: 0 | 13 | 33 | 100.5 | 160.5
-    # Heights Y: 0 | 20 | 25 | 32.5 | 45 | 50
-    #
-    # Current Mappings based on intuition from standard pulley parameters:
-    # x1 = Shaft Radius = d_shaft / 2
-    # y5 = Bearing Width / 2 (Assuming inner bearing seat starts here, roughly 20 in original) -> Let's map this properly
-    # Let's parameterize the 4 steps based on the 5 inputs.
-    
-    # Radii
-    x1 = d_shaft / 2.0                 # Inner Shaft 
-    x2 = x1 + 20.0                     # Inner Hub (Approximation, can be parameterized further)
-    x3 = w_base                        # Wait, base width as radius? Let's assume w_base is a diameter or radius. Let's say radius.
-    x4 = d_roller / 2.0                # Outer Roller Radius
-    
-    # Heights
-    y5 = 20.0                          # Base height (inner)
-    y1 = y5 + 5.0                      # Inner Hub height
-    y4 = y1 + 7.5                      # Web/Spoke base height
-    y3 = y4 + 12.5                     # Outer rim base height
-    y2 = h_overall                     # Overall max height
-    
-    # Ensure logical progression based on FreeCAD sketch logic (Constraints require increasing values or specific orders depending on geometry logic).
-    # Since we need a concrete formula, and looking at the original:
-    # y1 (0-25) -> y5 (20) in original. The indices in the array match up to:
-    # (0,0)->(0,y1) : axis
-    # (0,y1)->(x1,y1) : shelf
-    # (x1,y1)->(x1,y2) : step up
-    # (x1,y2)->(x2,y2) : shelf
-    # (x2,y2)->(x2,y3) : step down
-    # (x2,y3)->(x3,y3) : shelf
-    # (x3,y3)->(x3,y4) : step down
-    # (x3,y4)->(x4,y4) : shelf
-    # (x4,y4)->(x4,y5) : outer wall drop
-    # (x4,y5)->(0,y5) : base return
-
-    # Let's map them properly based on the original sketch's intent!
-    # Original:
-    # x1=13 (Shaft Dia=26), x2=33 (Hub Dia=66), x3=100.5 (Base Width?), x4=160.5 (Roller Dia=321?)
-    # y1=25, y2=50(overall), y3=45, y4=32.5, y5=20(inner base)
     
     x1 = max(1.0, d_shaft / 2.0)
     x2 = max(x1 + 5.0, x1 + 20.0)               
@@ -257,7 +191,7 @@ def generate_script(output_path, output_format, d_shaft, w_bearing, w_base, h_ov
     y2 = max(y3 + 5.0, h_overall)
 
     return SCRIPT_TEMPLATE.format(
-        output_path=output_path.replace("\\", "\\\\"),
+        output_path=output_path.replace("\\", "/"),
         output_format=output_format,
         x1=x1, x2=x2, x3=x3, x4=x4,
         y1=y1, y2=y2, y3=y3, y4=y4, y5=y5
@@ -265,12 +199,8 @@ def generate_script(output_path, output_format, d_shaft, w_bearing, w_base, h_ov
 
 
 def run_freecad_script(script_content, use_gui=False):
-    if use_gui:
-        freecad_exe = find_freecad()
-    else:
-        freecad_exe = find_freecadcmd()
-        if freecad_exe is None:
-            freecad_exe = find_freecad()
+    # Always use FreeCAD.exe (GUI) since ImportGui needs it for GLTF export
+    freecad_exe = find_freecad()
     
     if freecad_exe is None:
         print("ERROR: FreeCAD not found!")
@@ -281,16 +211,33 @@ def run_freecad_script(script_content, use_gui=False):
         f.write(script_content)
     
     try:
-        if use_gui:
-            subprocess.Popen([freecad_exe, script_path])
-        else:
-            result = subprocess.run([freecad_exe, script_path], capture_output=True, text=True, timeout=300)
-            print("--- FreeCAD Output ---")
-            print(result.stdout)
-            if result.stderr:
-                print("--- FreeCAD Errors ---")
-                print(result.stderr)
-        return True
+        # Use Popen so we can kill FreeCAD GUI after it finishes exporting.
+        # FreeCAD.exe GUI won't exit on its own even with os._exit(0) in the script.
+        proc = subprocess.Popen(
+            [freecad_exe, script_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        
+        # Wait up to 120 seconds for the process to finish on its own
+        try:
+            stdout, stderr = proc.communicate(timeout=120)
+        except subprocess.TimeoutExpired:
+            # FreeCAD GUI is likely still open — kill it
+            proc.kill()
+            stdout, stderr = proc.communicate()
+        
+        print("--- FreeCAD Output ---")
+        print(stdout)
+        if stderr:
+            print("--- FreeCAD Errors ---")
+            print(stderr)
+        
+        # Check if export was successful by looking at stdout
+        if "successfully saved" in stdout:
+            return True
+        return proc.returncode == 0
     except Exception as e:
         print("Error: " + str(e))
         return False
@@ -300,7 +247,7 @@ def main():
     
     parser = argparse.ArgumentParser(description="FreeCAD Stepped Revolution with Custom Dimensions")
     parser.add_argument("--output", "-o", type=str, default=None, help="Output file path")
-    parser.add_argument("--format", "-f", choices=["glb", "gltf"], default="glb", help="Output format")
+    parser.add_argument("--format", "-f", choices=["glb", "gltf"], default="gltf", help="Output format")
     parser.add_argument("--gui", action="store_true", help="Open FreeCAD GUI")
     
     # Custom Dimensions
